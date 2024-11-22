@@ -16,6 +16,7 @@ contract PollContract {
     address public admin;  
     mapping(uint256 => Poll) public polls; 
     mapping(address => mapping(uint256 => bool)) public hasVoted; 
+    mapping(address => mapping(uint256 => uint256)) public userVotes; 
 
     uint256 public pollCount;
 
@@ -25,29 +26,19 @@ contract PollContract {
     }
 
     modifier onlyActivePoll(uint256 pollId) {
-        if (block.timestamp >= polls[pollId].endTime) {
-            polls[pollId].isClosed = true;
-        }
         require(!polls[pollId].isClosed, "Poll is already closed");
         _;
     }
 
     event PollCreated(uint256 pollId, string title, uint256 duration);
-
     event Voted(uint256 pollId, address voter, uint256 option);
-
     event PollClosed(uint256 pollId);
 
     constructor() {
         admin = msg.sender;  
     }
 
-    function createPoll(
-        string memory _title,
-        string memory _description,
-        string[] memory _options,
-        uint256 _duration
-    ) external onlyAdmin {
+    function createPoll( string memory _title, string memory _description, string[] memory _options, uint256 _duration ) external onlyAdmin {
         require(_options.length > 1, "There must be at least two options");
         require(_duration > 60, "Duration should be at least 1 minute");
 
@@ -72,6 +63,7 @@ contract PollContract {
         require(!hasVoted[msg.sender][pollId], "You have already voted");
 
         hasVoted[msg.sender][pollId] = true;
+        userVotes[msg.sender][pollId] = optionIndex; 
 
         polls[pollId].votes[optionIndex]++;
 
@@ -85,19 +77,47 @@ contract PollContract {
         emit PollClosed(pollId);
     }
 
-    function getPollResults(uint256 pollId) external view returns (string[] memory, uint256[] memory) {
-        require(polls[pollId].isClosed, "Poll is still active");
-        return (polls[pollId].options, polls[pollId].votes);
+    function getPollInfo(uint256 pollId) external view returns ( string memory title, string memory description, string[] memory options, uint256[] memory votes, uint256 duration, uint256 endTime, bool isClosed, string memory status, uint256 remainingTime ) {
+        Poll storage poll = polls[pollId];
+        bool pollClosed = poll.isClosed || block.timestamp >= poll.endTime;
+        string memory pollStatus = pollClosed ? "Closed" : "Open";
+        uint256 remainingTimeForPoll = pollClosed ? 0 : (poll.endTime > block.timestamp ? poll.endTime - block.timestamp : 0);
+
+        return ( 
+            poll.title,
+            poll.description,
+            poll.options,
+            poll.votes,
+            poll.duration,
+            poll.endTime,
+            pollClosed,
+            pollStatus,
+            remainingTimeForPoll
+        );
     }
 
-    function getPollStatus(uint256 pollId) external view returns (string memory status, uint256 remainingTime) {
-        if (polls[pollId].isClosed) {
-            return ("Closed", 0);
-        }
-        if (block.timestamp >= polls[pollId].endTime) {
-            return ("Expired", 0);
-        }
-        return ("Active", polls[pollId].endTime - block.timestamp);
-    }
+    function getUserVotingHistory(address user) external view returns ( uint256[] memory pollIds, string[] memory votedOptions ) {
+        uint256 userPollCount = 0;
 
+        for (uint256 i = 0; i < pollCount; i++) {
+            if (hasVoted[user][i]) {
+                userPollCount++;
+            }
+        }
+
+        uint256[] memory _pollIds = new uint256[](userPollCount);
+        string[] memory _votedOptions = new string[](userPollCount);
+
+        uint256 index = 0;
+
+        for (uint256 i = 0; i < pollCount; i++) {
+            if (hasVoted[user][i]) {
+                _pollIds[index] = i;
+                _votedOptions[index] = polls[i].options[userVotes[user][i]];
+                index++;
+            }
+        }
+
+        return (_pollIds, _votedOptions);
+    }
 }

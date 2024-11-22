@@ -8,15 +8,14 @@ const config: HardhatUserConfig = {
     sepolia: {
       url: process.env.RPC_URL!,
       accounts: [process.env.PRIVATE_KEY!],
-
     },
   },
   etherscan: {
-    apiKey: process.env.API_KEY!
-  }
+    apiKey: process.env.API_KEY!,
+  },
 };
 
 export default config;
 
-// 0x2bB3f2958db9478D63Ba6da51402C6249541dE30
-// https://sepolia.etherscan.io/address/0x2bB3f2958db9478D63Ba6da51402C6249541dE30#code
+// 0xF90dF81d6cFFd1469a1F91Ac633F2E40cE56dE99
+// https://sepolia.etherscan.io/address/0xF90dF81d6cFFd1469a1F91Ac633F2E40cE56dE99#code
